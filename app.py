@@ -2,11 +2,13 @@ import streamlit as st
 import torch
 from torchvision import transforms
 from PIL import Image
+import numpy as np
+import random
 
 from model import ClassicalCNN, HybridQNN
 
 # -----------------------------
-# Load models
+# Load Models
 # -----------------------------
 @st.cache_resource
 def load_classical():
@@ -23,6 +25,24 @@ def load_hybrid():
     return model
 
 # -----------------------------
+# Noise Functions
+# -----------------------------
+def add_gaussian_noise(img):
+    std = random.uniform(0.0, 0.4)   # RANDOM
+    noise = torch.randn_like(img) * std
+    return torch.clamp(img + noise, 0., 1.), std
+
+def add_salt_pepper_noise(img):
+    prob = random.uniform(0.0, 0.2)  # RANDOM
+    noisy = img.clone()
+    rand = torch.rand_like(img)
+
+    noisy[rand < prob] = 1.0
+    noisy[rand > 1 - prob] = 0.0
+
+    return noisy, prob
+
+# -----------------------------
 # UI
 # -----------------------------
 st.title("🩺 Pneumonia Detection System")
@@ -34,13 +54,13 @@ model_choice = st.sidebar.selectbox(
     ["Classical CNN", "Hybrid QNN"]
 )
 
-noise_option = st.sidebar.selectbox(
-    "Noise",
-    ["None", "Gaussian", "Salt & Pepper"]
+noise_type = st.sidebar.multiselect(
+    "Select Noise Type",
+    ["Gaussian", "Salt & Pepper"]
 )
 
 # -----------------------------
-# Image preprocessing
+# Image Processing
 # -----------------------------
 transform = transforms.Compose([
     transforms.Grayscale(),
@@ -48,32 +68,29 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-def add_gaussian_noise(img):
-    noise = torch.randn_like(img) * 0.2
-    return torch.clamp(img + noise, 0., 1.)
+uploaded_file = st.file_uploader("Upload Chest X-ray Image", type=["jpg","png","jpeg"])
 
-def add_salt_pepper_noise(img):
-    noisy = img.clone()
-    rand = torch.rand_like(img)
-    noisy[rand < 0.05] = 1.0
-    noisy[rand > 0.95] = 0.0
-    return noisy
+if uploaded_file:
+    image = Image.open(uploaded_file)
 
-# -----------------------------
-# Upload image
-# -----------------------------
-file = st.file_uploader("Upload X-ray Image", type=["jpg","png","jpeg"])
-
-if file:
-    image = Image.open(file)
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    st.subheader("Original Image")
+    st.image(image, use_column_width=True)
 
     img = transform(image).unsqueeze(0)
 
-    if noise_option == "Gaussian":
-        img = add_gaussian_noise(img)
-    elif noise_option == "Salt & Pepper":
-        img = add_salt_pepper_noise(img)
+    gaussian_val = None
+    sp_val = None
+
+    # Apply Random Noise
+    if "Gaussian" in noise_type:
+        img, gaussian_val = add_gaussian_noise(img)
+
+    if "Salt & Pepper" in noise_type:
+        img, sp_val = add_salt_pepper_noise(img)
+
+    # Show processed image
+    st.subheader("Processed Image")
+    st.image(img.squeeze().numpy(), clamp=True)
 
     # Load model
     if model_choice == "Classical CNN":
@@ -87,5 +104,12 @@ if file:
 
     result = "PNEUMONIA 🫁" if pred.item() == 1 else "NORMAL ✅"
 
-    st.subheader("Prediction:")
+    st.subheader("Prediction")
     st.success(result)
+
+    # Show random values used
+    if gaussian_val is not None:
+        st.write(f"Gaussian Noise (random): {round(gaussian_val, 3)}")
+
+    if sp_val is not None:
+        st.write(f"Salt & Pepper Noise (random): {round(sp_val, 3)}")
