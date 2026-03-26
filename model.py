@@ -28,7 +28,7 @@ class ClassicalCNN(nn.Module):
 # Hybrid QNN
 # -----------------------------
 n_qubits = 6
-n_layers = 4
+n_layers = 6
 
 dev = qml.device("default.qubit", wires=n_qubits)
 
