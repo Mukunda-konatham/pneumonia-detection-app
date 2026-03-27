@@ -58,6 +58,11 @@ noise_type = st.sidebar.multiselect(
     "Select Noise Type",
     ["Gaussian", "Salt & Pepper"]
 )
+gaussian_level = st.slider("Gaussian Noise Level", 0.0, 0.4, 0.2)
+sp_level = st.slider("Salt & Pepper Noise Level", 0.0, 0.1, 0.05)
+
+
+already vunna code lo ivi add cheyyi ra,appudu adjust cheyyataniki avuthadhi
 
 # -----------------------------
 # Image Processing
